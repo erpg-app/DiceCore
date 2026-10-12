@@ -10,12 +10,13 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
+import {
+  maximumCoreEsmGzipSize,
+  maximumPackedSize,
+  maximumRootEsmGzipSize,
+  maximumUnpackedSize,
+} from './package-budgets.js';
 
-const maximumPackedSize = 96 * 1024;
-const maximumUnpackedSize = 375 * 1024;
-// PF2 adds its d20 adapter and mixed-notation parser to the public root graph.
-const maximumRootEsmGzipSize = 32 * 1024;
-const maximumCoreEsmGzipSize = 23 * 1024;
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const tscExecutable = resolve(root, 'node_modules/typescript/bin/tsc');
 const npmExecutable = process.env['npm_execpath'];
