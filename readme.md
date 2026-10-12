@@ -45,7 +45,7 @@ import { rollFateDice } from '@erpg/dicecore/systems/fate';
 ```
 
 Também estão disponíveis `@erpg/dicecore/systems`,
-`@erpg/dicecore/systems/assimilation`, `/daggerheart`, `/mixed` e
+`@erpg/dicecore/systems/assimilation`, `/daggerheart`, `/pathfinder2e`, `/mixed` e
 `/vampire-v5`. Outros imports profundos, global UMD e as classes internas da V2
 não fazem parte da API pública.
 
@@ -106,6 +106,7 @@ As funções públicas são:
 - `evaluateAssimilationSelection(roll, selectedIds)`: seleciona até `keep` IDs únicos e agrega seus símbolos;
 - `rollFateDice(input?, options?)`: rola quatro dados Fate por padrão, preserva as faces físicas e soma `-1`, `0` e `+1`;
 - `rollDaggerheart(input?, options?)`: rola os dois d12 de Duality Dice, aplica modificador e resolve Esperança/Medo, sucesso, falha ou crítico;
+- `rollPathfinder2e(input?, options?)`: rola 1d20 + modificador e resolve os quatro graus de sucesso, com ajustes de 1/20 natural e fortuna/infortúnio;
 - `rollMixedDice(notation, options?)`: executa fórmulas genéricas e sistemas diferentes em um único lote 2D/3D;
 - `createSystemRoller(engine)`: vincula todas as APIs de sistema ao engine configurado;
 - `verifyRpgDiceNotation(input, options?)`: atalho booleano de validação;
@@ -175,6 +176,7 @@ Chamadas aceitas:
 | Fate | `fate(4)` ou `fate()` | `fate(dice=4)` |
 | Assimilação | `AS(2,1,1,1)` ou `assim(2,1,1,1)` | `AS(d6=2,d10=1,d12=1,keep=1)` |
 | Daggerheart | `dh()` ou `dagger(2,15)` | `daggerheart(modifier=2,difficulty=15)` |
+| PF2 | `pf2(5,20,1)` ou `pf2e(5,null,-1)` | `pathfinder2e(modifier=5,difficulty=20,fortune=1)` |
 
 Também são reconhecidos `AS`, `vampiro`, `vampire`, `fatedice`, `assimilacao` e
 `assimilation`. Cada trecho genérico aceita a notação V3 completa, inclusive
@@ -299,6 +301,38 @@ O total é a soma das duas faces e do modificador. Se os valores forem iguais,
 o resultado é `critical-success`; caso contrário, a face maior define se a
 ação foi feita com Esperança ou Medo. Sem `difficulty`, o resultado fica
 pendente para Dificuldades secretas.
+
+### PF2 (Remaster)
+
+```ts
+import { rollPathfinder2e } from '@erpg/dicecore/systems/pathfinder2e';
+
+const check = rollPathfinder2e({
+  modifier: 7,
+  difficulty: 20,
+  fortune: 'fortune',
+  labels: { 'critical-success': 'Sucesso crítico', success: 'Sucesso' },
+}, { seed: 'pf2-example' });
+
+console.log(check.total, check.natural, check.margin, check.degree, check.degreeLabel);
+```
+
+Uma margem de +10 ou mais produz sucesso crítico; 0 a +9, sucesso; −1 a −9,
+falha; −10 ou menos, falha crítica. Um 20 natural melhora um grau e um 1 natural
+piora um grau, respeitando esses limites. A CD omitida ou `null` mantém
+`degree: 'pending'`, `margin: null` e `succeeds: null`, inclusive no 1 ou 20.
+
+`fortune: 'fortune'` rola dois d20 e escolhe o maior; `'misfortune'` escolhe o
+menor. Ambos permanecem em `dice`, com `selected` indicando o dado escolhido;
+empates escolhem o primeiro. O perfil `pathfinder2e-d20` usa `faceKey` numérico
+em texto, sem símbolos especiais. `baseRoll` preserva replay e estatísticas,
+e `detail: 'compact'` usa o mesmo contrato compacto dos demais sistemas.
+
+Na notação mista, o terceiro argumento é `1` para fortuna, `-1` para infortúnio
+ou `0` para normal: `pf2(7,20,1)`, `pf2(7,null,-1)` e `pf2(7)`. Os aliases
+`pf2e` e `pathfinder2e` também são aceitos. Os argumentos nomeados incluem
+`modifier`/`mod`/`bonus`, `difficulty`/`dc`/`cd`/`dificuldade` e
+`fortune`/`fortuna`. Rótulos são exclusivos da API e preservam o grau técnico.
 
 ### Apresentação 3D de Daggerheart
 

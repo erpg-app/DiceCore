@@ -73,6 +73,10 @@ describe('configured system roller', () => {
       .toBe('dice-roll');
     expect(systems.rollFateDice(undefined, { seed: 'bound-fate' }).baseRoll.type)
       .toBe('dice-roll');
+    expect(systems.rollPathfinder2e(undefined, { seed: 'bound-pf2' }).baseRoll.type)
+      .toBe('dice-roll');
+    expect(systems.rollPathfinder2e({ fortune: 'fortune' }, { seed: 'bound-pf2', detail: 'compact' }).baseRoll.type)
+      .toBe('dice-roll-summary');
     expect(systems.rollMixedDice('1d6', { seed: 'bound-mixed' }).rolls[0]?.kind)
       .toBe('generic');
   });

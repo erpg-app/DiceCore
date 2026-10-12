@@ -20,6 +20,8 @@ import {
   normalizeRpgDiceNotation,
   rollAssimilation,
   rollDaggerheart,
+  rollPathfinder2e,
+  PATHFINDER2E_D20_PROFILE,
   rollFateDice,
   rollMixedDice,
   rollRpgDice,
@@ -63,6 +65,10 @@ import type {
   DaggerheartRollInput,
   DaggerheartRollResult,
   DaggerheartSymbol,
+  Pathfinder2eDegree,
+  Pathfinder2eFortune,
+  Pathfinder2eRollInput,
+  Pathfinder2eRollResult,
   ExecutionStats,
   ExcludeDiceEvent,
   ExplodeDiceEvent,
@@ -498,6 +504,16 @@ export function publicApiContracts(): void {
   expectType<DaggerheartOutcome>(daggerheartOutcome);
   expectType<SystemDieResult>(daggerheartDie);
   expectType<DiceRollResult>(daggerheartResult.baseRoll);
+  const pf2Input: Pathfinder2eRollInput = {
+    modifier: 5, difficulty: null, fortune: 'fortune', labels: { pending: 'CD secreta' },
+  };
+  const pf2Result: Pathfinder2eRollResult = rollPathfinder2e(pf2Input, { seed: 'pf2-public-api' });
+  expectType<Pathfinder2eDegree>(pf2Result.degree);
+  expectType<Pathfinder2eFortune>(pf2Result.fortune);
+  expectType<number | null>(pf2Result.margin);
+  expectType<SystemDieResult>(pf2Result.dice[0]!);
+  expectType<'pathfinder2e-d20'>(PATHFINDER2E_D20_PROFILE);
+  expectType<DiceRollResult>(pf2Result.baseRoll);
 
   const compactOptions: CompactSystemRollOptions = {
     detail: 'compact',
@@ -508,6 +524,8 @@ export function publicApiContracts(): void {
     limits: DICE_LIMIT_PRESETS.untrustedServer,
   }));
   expectType<DiceRollSummary>(systems.rollDaggerheart(undefined, compactOptions).baseRoll);
+  expectType<DiceRollSummary>(rollPathfinder2e(undefined, compactOptions).baseRoll);
+  expectType<DiceRollSummary>(systems.rollPathfinder2e(pf2Input, compactOptions).baseRoll);
 
   const mixedOptions: MixedRollOptions = { seed: 'mixed-public-api' };
   const compactMixedOptions: MixedCompactRollOptions = {

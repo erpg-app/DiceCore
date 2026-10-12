@@ -84,6 +84,7 @@ jobs:
           node scripts/generate-go-executor-fixtures.mjs --check
           node scripts/generate-go-engine-fixtures.mjs --check
           node scripts/generate-go-system-fixtures.mjs --check
+          node --import tsx scripts/generate-pathfinder2e-fixtures.ts --check
 
   math-oracle:
     # V8's std::pow can vary with the platform libm. Regenerate against the

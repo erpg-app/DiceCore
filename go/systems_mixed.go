@@ -64,6 +64,7 @@ type MixedGenericDieResult struct {
 type MixedSystemDieResult struct {
 	SystemDieResult
 	FateValue      *float64 `json:"fateValue,omitempty"`
+	Selected       *bool    `json:"selected,omitempty"`
 	MixedRollID    string   `json:"mixedRollId"`
 	MixedRollIndex int64    `json:"mixedRollIndex"`
 	SystemDieID    string   `json:"systemDieId"`
@@ -97,6 +98,7 @@ type mixedArguments struct {
 var systemAliases = map[string]string{
 	"as": "assimilation", "assim": "assimilation", "assimilacao": "assimilation", "assimilation": "assimilation",
 	"dagger": "daggerheart", "daggerheart": "daggerheart", "dh": "daggerheart", "fate": "fate", "fatedice": "fate",
+	"pf2": "pathfinder2e", "pf2e": "pathfinder2e", "pathfinder2e": "pathfinder2e",
 	"v5": "vampire-v5", "vampire": "vampire-v5", "vampirev5": "vampire-v5", "vampiro": "vampire-v5",
 }
 var mixedCallPattern = regexp.MustCompile(`(?s)^([` + systemLetterRanges + `][` + systemLetterRanges + systemNumberRanges + `_-]*)(?:\p{Z}|[\t\n\v\f\r\x{FEFF}])*\((.*)\)$`)
@@ -182,7 +184,13 @@ func parseMixedInteger(input, original string, segment int64) (float64, error) {
 	}
 	return value, nil
 }
-func parseMixedArguments(body, original string, segment int64) (mixedArguments, error) {
+func parseMixedArguments(body, original string, segment int64, allowNullDifficulty ...bool) (mixedArguments, error) {
+	parseInteger := func(value string) (float64, error) {
+		if value == "null" && len(allowNullDifficulty) > 0 && allowNullDifficulty[0] {
+			return math.NaN(), nil
+		}
+		return parseMixedInteger(value, original, segment)
+	}
 	result := mixedArguments{positional: []float64{}}
 	trimmed := syntaxTrimSpace(body)
 	if trimmed == "" {
@@ -199,7 +207,7 @@ func parseMixedArguments(body, original string, segment int64) (mixedArguments, 
 	}
 	if !named {
 		for _, part := range parts {
-			value, err := parseMixedInteger(part, original, segment)
+			value, err := parseInteger(part)
 			if err != nil {
 				return result, err
 			}
@@ -220,7 +228,7 @@ func parseMixedArguments(body, original string, segment int64) (mixedArguments, 
 		if name == "" || duplicate {
 			return result, mixedNotationError(original, fmt.Sprintf("Mixed roll %d contains an invalid or duplicate argument", segment), segment)
 		}
-		value, err := parseMixedInteger(syntaxTrimSpace(part[separator+1:]), original, segment)
+		value, err := parseInteger(syntaxTrimSpace(part[separator+1:]))
 		if err != nil {
 			return result, err
 		}
@@ -256,12 +264,32 @@ func parseMixedSystem(kind string, args mixedArguments, original string, segment
 	case "fate":
 		fields = []mixedField{{"dice", []string{"dice", "dado", "dados"}, mixedDefault(4)}}
 		maximum, message = 1, "fate() expects an optional dice count"
+	case "pathfinder2e":
+		fields = []mixedField{{"modifier", []string{"modifier", "mod", "bonus"}, mixedDefault(0)}, {"difficulty", []string{"difficulty", "dificuldade", "dc", "cd"}, nil}, {"fortune", []string{"fortune", "fortuna"}, mixedDefault(0)}}
+		maximum, message = 3, "pf2() expects modifier, optional difficulty and fortune"
 	case "daggerheart":
 		fields = []mixedField{{"modifier", []string{"modifier", "mod", "bonus"}, mixedDefault(0)}, {"difficulty", []string{"difficulty", "dificuldade", "dc"}, nil}}
 		maximum, message = 2, "daggerheart() expects optional modifier and difficulty"
 	case "assimilation":
 		fields = []mixedField{{"d6", []string{"d6"}, mixedDefault(0)}, {"d10", []string{"d10"}, mixedDefault(0)}, {"d12", []string{"d12"}, mixedDefault(0)}, {"keep", []string{"keep", "manter"}, mixedDefault(1)}}
 		minimum, maximum, message = 1, 4, "assim() expects d6, d10, d12, and optional keep"
+	}
+	if kind == "pathfinder2e" && args.named != nil {
+		seen := map[string]bool{}
+		for _, name := range args.names {
+			canonical := ""
+			for _, field := range fields {
+				for _, alias := range field.aliases {
+					if alias == name {
+						canonical = field.name
+					}
+				}
+			}
+			if canonical == "" || seen[canonical] {
+				return parsed, mixedNotationError(original, fmt.Sprintf("Mixed roll %d contains an unknown or duplicate argument '%s'", segment, name), segment)
+			}
+			seen[canonical] = true
+		}
 	}
 	if args.named == nil {
 		if len(args.positional) < minimum || len(args.positional) > maximum {
@@ -299,6 +327,12 @@ func parseMixedSystem(kind string, args mixedArguments, original string, segment
 			}
 		}
 		if value != nil {
+			if math.IsNaN(*value) {
+				if kind == "pathfinder2e" && field.name == "difficulty" {
+					continue
+				}
+				return parsed, mixedNotationError(original, fmt.Sprintf("Mixed roll %d arguments must be integer literals", segment), segment)
+			}
 			parsed.input[field.name] = *value
 		}
 	}
@@ -320,6 +354,23 @@ func parseMixedSystem(kind string, args mixedArguments, original string, segment
 	case "fate":
 		parsed.notation = "fate(dice=" + text("dice") + ")"
 		parsed.initialDice = numeric("dice")
+	case "pathfinder2e":
+		fortune := numeric("fortune")
+		if fortune != -1 && fortune != 0 && fortune != 1 {
+			return parsed, mixedNotationError(original, fmt.Sprintf("Mixed roll %d fortune must be -1, 0, or 1", segment), segment)
+		}
+		parsed.notation = "pathfinder2e(modifier=" + text("modifier") + suffix
+		parsed.initialDice = 1
+		parsed.input["fortune"] = "normal"
+		if fortune != 0 {
+			parsed.notation += ",fortune=" + systemNumber(fortune)
+			parsed.initialDice = 2
+			parsed.input["fortune"] = "fortune"
+			if fortune < 0 {
+				parsed.input["fortune"] = "misfortune"
+			}
+		}
+		parsed.notation += ")"
 	case "daggerheart":
 		parsed.notation = "daggerheart(modifier=" + text("modifier") + suffix + ")"
 		parsed.initialDice = 2
@@ -339,7 +390,7 @@ func mixedLimitOverrides(limits DiceLimits) DiceLimitOverrides {
 func parseMixedRoll(segmentInput, original string, segment int64, limits DiceLimits, engine SystemEngine) (parsedMixedRoll, error) {
 	if call := mixedCallPattern.FindStringSubmatch(segmentInput); call != nil {
 		if kind := systemAliases[normalizeSystemName(call[1])]; kind != "" {
-			args, err := parseMixedArguments(call[2], original, segment)
+			args, err := parseMixedArguments(call[2], original, segment, kind == "pathfinder2e")
 			if err != nil {
 				return parsedMixedRoll{}, err
 			}
@@ -490,6 +541,8 @@ func createMixedItem(engine SystemEngine, parsed parsedMixedRoll, index int, opt
 		item.Result, err = RollFateDiceWithEngine(engine, parsed.input, options)
 	case "assimilation":
 		item.Result, err = RollAssimilationWithEngine(engine, parsed.input, options)
+	case "pathfinder2e":
+		item.Result, err = RollPathfinder2eWithEngine(engine, parsed.input, options)
 	case "daggerheart":
 		item.Result, err = RollDaggerheartWithEngine(engine, parsed.input, options)
 	case "vampire-v5":
@@ -532,7 +585,7 @@ func flattenMixedDice(items []MixedRollItem) []any {
 		appendDie := func(die SystemDieResult, fate *float64) {
 			sourceID := die.ID
 			die.ID = item.ID + ":" + die.ID
-			dice = append(dice, MixedSystemDieResult{die, fate, item.ID, item.Index, sourceID, die.RawValue, true})
+			dice = append(dice, MixedSystemDieResult{SystemDieResult: die, FateValue: fate, MixedRollID: item.ID, MixedRollIndex: item.Index, SystemDieID: sourceID, PhysicalValue: die.RawValue, Included: true})
 		}
 		switch result := item.Result.(type) {
 		case *FateRollResult:
@@ -543,6 +596,15 @@ func flattenMixedDice(items []MixedRollItem) []any {
 		case *AssimilationRollResult:
 			for _, die := range result.Dice {
 				appendDie(die, nil)
+			}
+		case *Pathfinder2eRollResult:
+			for _, die := range result.Dice {
+				appendDie(die.SystemDieResult, nil)
+				projected := dice[len(dice)-1].(MixedSystemDieResult)
+				selected := die.Selected
+				projected.Selected = &selected
+				projected.Included = selected
+				dice[len(dice)-1] = projected
 			}
 		case *DaggerheartRollResult:
 			for _, die := range result.Dice {
@@ -586,6 +648,12 @@ func formatMixedItem(item MixedRollItem) string {
 			faces = append(faces, face)
 		}
 		return fmt.Sprintf("%s: [%s] (keep %d)", item.Notation, strings.Join(faces, " | "), result.Keep)
+	case *Pathfinder2eRollResult:
+		faces := make([]string, len(result.Dice))
+		for index, die := range result.Dice {
+			faces[index] = systemNumber(die.RawValue)
+		}
+		return fmt.Sprintf("%s: [%s] = %s (%s)", item.Notation, strings.Join(faces, ","), systemNumber(result.Total), result.Degree)
 	case *DaggerheartRollResult:
 		return fmt.Sprintf("%s: Hope %s, Fear %s = %s (%s)", item.Notation, systemNumber(result.HopeDie.RawValue), systemNumber(result.FearDie.RawValue), systemNumber(result.Total), result.Outcome)
 	default:

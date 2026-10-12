@@ -65,6 +65,16 @@
         "default": "./dist/systems/daggerheart.cjs"
       }
     },
+    "./systems/pathfinder2e": {
+      "import": {
+        "types": "./dist/v3/systems/pathfinder2e.d.ts",
+        "default": "./dist/systems/pathfinder2e.js"
+      },
+      "require": {
+        "types": "./dist/v3/systems/pathfinder2e.d.cts",
+        "default": "./dist/systems/pathfinder2e.cjs"
+      }
+    },
     "./systems/fate": {
       "import": {
         "types": "./dist/v3/systems/fate.d.ts",
