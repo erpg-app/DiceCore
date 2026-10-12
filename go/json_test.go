@@ -28,8 +28,13 @@ func assertNativeJSONError(t *testing.T, got, want error) {
 			}
 		case *json.UnsupportedValueError:
 			actual := got.(*json.UnsupportedValueError)
-			if actual.Str != expected.Str || actual.Value.Type() != expected.Value.Type() {
+			// Newer encoding/json versions may report an invalid reflect.Value
+			// for non-finite numbers. Compare validity before inspecting Type.
+			if actual.Str != expected.Str || actual.Value.IsValid() != expected.Value.IsValid() {
 				t.Fatal("unsupported value changed")
+			}
+			if expected.Value.IsValid() && actual.Value.Type() != expected.Value.Type() {
+				t.Fatal("unsupported value type changed")
 			}
 		}
 		got, want = errors.Unwrap(got), errors.Unwrap(want)
