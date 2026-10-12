@@ -20,6 +20,15 @@ export {
   rollDaggerheart,
 } from './daggerheart.js';
 export { rollMixedDice } from './mixed.js';
+export { PATHFINDER2E_D20_PROFILE, rollPathfinder2e, rollPathfinder2eWithEngine } from './pathfinder2e.js';
+export type {
+  Pathfinder2eDegree,
+  Pathfinder2eDieResult,
+  Pathfinder2eFortune,
+  Pathfinder2eLabels,
+  Pathfinder2eRollInput,
+  Pathfinder2eRollResult,
+} from './pathfinder2e.js';
 export { createSystemRoller } from './system-roller.js';
 
 export type {
@@ -68,6 +77,7 @@ export type {
   MixedAssimilationRollItem,
   MixedCompactRollOptions,
   MixedDaggerheartRollItem,
+  MixedPathfinder2eRollItem,
   MixedFateRollItem,
   MixedFullRollOptions,
   MixedGenericDieResult,

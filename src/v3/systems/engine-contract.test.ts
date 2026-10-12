@@ -4,8 +4,22 @@ import { rollAssimilationWithEngine } from './assimilation.js';
 import { rollFateDiceWithEngine } from './fate.js';
 import { rollDaggerheartWithEngine } from './daggerheart.js';
 import { rollMixedDiceWithEngine } from './mixed.js';
+import { rollPathfinder2eWithEngine } from './pathfinder2e.js';
 
 describe('custom engine contract validation', () => {
+  test.each([
+    [], [{ rawValue: 1, sides: 12 }], [{ rawValue: 0, sides: 20 }],
+    [{ rawValue: 21, sides: 20 }], [{ rawValue: 1.5, sides: 20 }],
+    [{ rawValue: 10, sides: 20 }, { rawValue: 10, sides: 20 }],
+  ].map((faces) => ({ faces })))('rejects malformed PF2 d20 results %j', ({ faces }) => {
+    const engine = createDiceEngine();
+    const result = engine.roll('2d20', { seed: 'pf2-contract' });
+    vi.spyOn(engine, 'roll').mockReturnValue({
+      ...result,
+      dice: faces.map((face, index) => ({ ...result.dice[index], ...face })) as typeof result.dice,
+    });
+    expect(() => rollPathfinder2eWithEngine(engine)).toThrow('PF2 checks must resolve exactly 1 valid d20 dice.');
+  });
   test.each([
     [{ rawValue: 13 }, 'Unsupported Assimilation face: 13'],
     [{ sides: 'F' }, 'Assimilation does not support Fudge dice'],

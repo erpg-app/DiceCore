@@ -3,6 +3,10 @@ import { readFileSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  maximumCoreEsmGzipSize,
+  maximumRootEsmGzipSize,
+} from './package-budgets.js';
 
 const SAMPLE_COUNT = 5;
 const REGRESSION_TOLERANCE = 0.15;
@@ -600,8 +604,8 @@ const coreEsmGzipBytes = measureEsmClosure('dist/core.js');
 assertAtMost(fullJsonBytes, 5.5 * 1024 * 1024, 'Full 10,000-die JSON size');
 assertAtMost(summaryJsonBytes, 50 * 1024, 'Summary 10,000-die JSON size');
 assertAtMost(fateCompactJsonBytes / fateFullJsonBytes, 0.5, 'Compact Fate JSON ratio');
-assertAtMost(rootEsmGzipBytes, 28 * 1024, 'Root ESM graph gzip size');
-assertAtMost(coreEsmGzipBytes, 21 * 1024, 'Core ESM graph gzip size');
+assertAtMost(rootEsmGzipBytes, maximumRootEsmGzipSize, 'Root ESM graph gzip size');
+assertAtMost(coreEsmGzipBytes, maximumCoreEsmGzipSize, 'Core ESM graph gzip size');
 
 const nodeMajor = Number.parseInt(process.versions.node.split('.')[0] ?? '', 10);
 const shouldCompareBaseline = process.argv.includes('--check')

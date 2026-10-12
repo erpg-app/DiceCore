@@ -29,6 +29,7 @@ const input = {
   'systems/index': 'src/v3/systems/index.ts',
   'systems/assimilation': 'src/v3/systems/assimilation.ts',
   'systems/daggerheart': 'src/v3/systems/daggerheart.ts',
+  'systems/pathfinder2e': 'src/v3/systems/pathfinder2e.ts',
   'systems/fate': 'src/v3/systems/fate.ts',
   'systems/mixed': 'src/v3/systems/mixed.ts',
   'systems/vampire-v5': 'src/v3/systems/vampire-v5.ts',

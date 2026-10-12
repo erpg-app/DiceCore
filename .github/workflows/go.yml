@@ -1,0 +1,103 @@
+name: Go migration
+
+on:
+  push:
+    branches: [Go-Version, main, develop]
+    paths:
+      - 'go/**'
+      - 'src/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig*.json'
+      - 'declaration.tsconfig.json'
+      - '*.config.*'
+      - '.github/workflows/go.yml'
+  pull_request:
+    paths:
+      - 'go/**'
+      - 'src/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig*.json'
+      - 'declaration.tsconfig.json'
+      - '*.config.*'
+      - '.github/workflows/go.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dicecore-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.26.2'
+          cache: false # This module has no external dependencies or go.sum.
+      - name: Check Go formatting
+        working-directory: go
+        shell: bash
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            printf '%s\n' "$unformatted"
+            exit 1
+          fi
+      - name: Vet Go
+        working-directory: go
+        run: go vet ./...
+      # CGO is required only for race instrumentation, not for the library.
+      # Windows was also checked locally with a portable GCC toolchain.
+      - name: Test Go with race detection and coverage
+        working-directory: go
+        env:
+          CGO_ENABLED: '1'
+        run: |
+          go test -race -coverpkg=./... -coverprofile="$RUNNER_TEMP/go-coverage.out" ./...
+          go tool cover -func="$RUNNER_TEMP/go-coverage.out"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.18.0'
+          cache: npm
+      - name: Test the exact statement coverage gate
+        run: node --test scripts/check-go-coverage.test.mjs
+      - name: Require every Go statement to be covered
+        run: node scripts/check-go-coverage.mjs "$RUNNER_TEMP/go-coverage.out"
+      - name: Install TypeScript oracle dependencies
+        run: npm ci --ignore-scripts
+      - name: Build the TypeScript oracle once
+        run: npm run build
+      - name: Verify deterministic TypeScript fixtures
+        run: |
+          node scripts/generate-go-fixtures.mjs --check
+          node scripts/generate-go-compiler-fixtures.mjs --check
+          node scripts/generate-go-executor-fixtures.mjs --check
+          node scripts/generate-go-engine-fixtures.mjs --check
+          node scripts/generate-go-system-fixtures.mjs --check
+          node --import tsx scripts/generate-pathfinder2e-fixtures.ts --check
+
+  math-oracle:
+    # V8's std::pow can vary with the platform libm. Regenerate against the
+    # pinned Windows reference; Go tests on Linux consume those same vectors.
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.18.0'
+          cache: npm
+      - name: Install TypeScript oracle dependencies
+        run: npm ci --ignore-scripts
+      - name: Verify exact math reference
+        run: node scripts/generate-go-math-conformance.mjs --check

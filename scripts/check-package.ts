@@ -10,11 +10,13 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
+import {
+  maximumCoreEsmGzipSize,
+  maximumPackedSize,
+  maximumRootEsmGzipSize,
+  maximumUnpackedSize,
+} from './package-budgets.js';
 
-const maximumPackedSize = 94 * 1024;
-const maximumUnpackedSize = 375 * 1024;
-const maximumRootEsmGzipSize = 30 * 1024;
-const maximumCoreEsmGzipSize = 23 * 1024;
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const tscExecutable = resolve(root, 'node_modules/typescript/bin/tsc');
 const npmExecutable = process.env['npm_execpath'];
@@ -30,6 +32,45 @@ const ignoredJavaScriptDirectories = new Set([
 ]);
 const allowedJavaScriptFiles = new Set([
   resolve(root, 'rollup.config.mjs'),
+  // Existing Go oracle/benchmark tooling is authored Node ESM and never ships
+  // in the npm package. Keep explicit paths; src/runtime JS remains forbidden.
+  resolve(root, 'go/benchmarks/optimization-round6/sources/verify.mjs'),
+  resolve(root, 'scripts/archive-backend-preflight.mjs'),
+  resolve(root, 'scripts/benchmark-backend-reference.mjs'),
+  resolve(root, 'scripts/benchmark-go-reference.mjs'),
+  resolve(root, 'scripts/benchmark-json-reference.mjs'),
+  resolve(root, 'scripts/benchmark-node-reference-round6.mjs'),
+  resolve(root, 'scripts/check-go-coverage.mjs'),
+  resolve(root, 'scripts/check-go-coverage.test.mjs'),
+  resolve(root, 'scripts/compare-backend-round2.mjs'),
+  resolve(root, 'scripts/compare-backend-round4.mjs'),
+  resolve(root, 'scripts/compare-backend-runtimes.mjs'),
+  resolve(root, 'scripts/compare-go-gc-memory-cap.mjs'),
+  resolve(root, 'scripts/compare-go-gc-round2.mjs'),
+  resolve(root, 'scripts/compare-go-gc.mjs'),
+  resolve(root, 'scripts/compare-go-round3-micro.mjs'),
+  resolve(root, 'scripts/compare-go-round4-micro.mjs'),
+  resolve(root, 'scripts/compare-go-round5-capacity.mjs'),
+  resolve(root, 'scripts/compare-go-round5-micro.mjs'),
+  resolve(root, 'scripts/compare-go-round6-micro.mjs'),
+  resolve(root, 'scripts/compare-go-round7-micro.mjs'),
+  resolve(root, 'scripts/compare-go-typescript.mjs'),
+  resolve(root, 'scripts/compare-json-round3.mjs'),
+  resolve(root, 'scripts/compare-json-round4.mjs'),
+  resolve(root, 'scripts/compare-json-round5.mjs'),
+  resolve(root, 'scripts/compare-json-runtimes.mjs'),
+  resolve(root, 'scripts/compare-node-latency-round6.mjs'),
+  resolve(root, 'scripts/compare-node-round6.mjs'),
+  resolve(root, 'scripts/generate-go-compiler-fixtures.mjs'),
+  resolve(root, 'scripts/generate-go-engine-fixtures.mjs'),
+  resolve(root, 'scripts/generate-go-executor-fixtures.mjs'),
+  resolve(root, 'scripts/generate-go-fixtures.mjs'),
+  resolve(root, 'scripts/generate-go-math-conformance.mjs'),
+  resolve(root, 'scripts/generate-go-system-fixtures.mjs'),
+  resolve(root, 'scripts/report-go-gc-round2.mjs'),
+  resolve(root, 'scripts/summarize-go-optimization.mjs'),
+  resolve(root, 'scripts/verify-go-round5.mjs'),
+  resolve(root, 'scripts/verify-node-round6.mjs'),
 ]);
 const javaScriptExtensions = ['.cjs', '.js', '.mjs'] as const;
 
@@ -197,15 +238,15 @@ try {
   );
   writeFileSync(
     join(temporaryDirectory, 'smoke.mjs'),
-    "import { createSystemRoller, evaluateAssimilationSelection, rollAssimilation, rollDaggerheart, rollFateDice, rollMixedDice, rollRpgDice, rollRpgDiceDetails, rollRpgDiceSummary, rollVampireV5 } from '@erpg/dicecore';\nimport { createDiceEngine } from '@erpg/dicecore/core';\nimport { rollFateDice as rollFateSubpath } from '@erpg/dicecore/systems/fate';\nimport { rollMixedDice as rollMixedSubpath } from '@erpg/dicecore/systems/mixed';\nif ([createDiceEngine, createSystemRoller, evaluateAssimilationSelection, rollAssimilation, rollDaggerheart, rollFateDice, rollFateSubpath, rollMixedDice, rollMixedSubpath, rollRpgDice, rollRpgDiceDetails, rollRpgDiceSummary, rollVampireV5].some((value) => typeof value !== 'function')) throw new TypeError('Missing ESM export');\n",
+    "import { createSystemRoller, evaluateAssimilationSelection, rollAssimilation, rollDaggerheart, rollPathfinder2e, rollFateDice, rollMixedDice, rollRpgDice, rollRpgDiceDetails, rollRpgDiceSummary, rollVampireV5 } from '@erpg/dicecore';\nimport { createDiceEngine } from '@erpg/dicecore/core';\nimport { rollFateDice as rollFateSubpath } from '@erpg/dicecore/systems/fate';\nimport { rollPathfinder2e as rollPf2Subpath } from '@erpg/dicecore/systems/pathfinder2e';\nimport { rollMixedDice as rollMixedSubpath } from '@erpg/dicecore/systems/mixed';\nif ([createDiceEngine, createSystemRoller, evaluateAssimilationSelection, rollAssimilation, rollDaggerheart, rollPathfinder2e, rollPf2Subpath, rollFateDice, rollFateSubpath, rollMixedDice, rollMixedSubpath, rollRpgDice, rollRpgDiceDetails, rollRpgDiceSummary, rollVampireV5].some((value) => typeof value !== 'function')) throw new TypeError('Missing ESM export');\n",
   );
   writeFileSync(
     join(temporaryDirectory, 'smoke.cjs'),
-    "const { createSystemRoller, evaluateAssimilationSelection, rollAssimilation, rollDaggerheart, rollFateDice, rollMixedDice, rollRpgDice, rollRpgDiceDetails, rollRpgDiceSummary, rollVampireV5 } = require('@erpg/dicecore');\nconst { createDiceEngine } = require('@erpg/dicecore/core');\nconst { rollFateDice: rollFateSubpath } = require('@erpg/dicecore/systems/fate');\nif ([createDiceEngine, createSystemRoller, evaluateAssimilationSelection, rollAssimilation, rollDaggerheart, rollFateDice, rollFateSubpath, rollMixedDice, rollRpgDice, rollRpgDiceDetails, rollRpgDiceSummary, rollVampireV5].some((value) => typeof value !== 'function')) throw new TypeError('Missing CJS export');\n",
+    "const { createSystemRoller, evaluateAssimilationSelection, rollAssimilation, rollDaggerheart, rollPathfinder2e, rollFateDice, rollMixedDice, rollRpgDice, rollRpgDiceDetails, rollRpgDiceSummary, rollVampireV5 } = require('@erpg/dicecore');\nconst { createDiceEngine } = require('@erpg/dicecore/core');\nconst { rollFateDice: rollFateSubpath } = require('@erpg/dicecore/systems/fate');\nconst { rollPathfinder2e: rollPf2Subpath } = require('@erpg/dicecore/systems/pathfinder2e');\nif ([createDiceEngine, createSystemRoller, evaluateAssimilationSelection, rollAssimilation, rollDaggerheart, rollPathfinder2e, rollPf2Subpath, rollFateDice, rollFateSubpath, rollMixedDice, rollRpgDice, rollRpgDiceDetails, rollRpgDiceSummary, rollVampireV5].some((value) => typeof value !== 'function')) throw new TypeError('Missing CJS export');\n",
   );
   writeFileSync(
     join(temporaryDirectory, 'smoke.mts'),
-    "import { createSystemRoller, evaluateAssimilationSelection, rollAssimilation, rollDaggerheart, rollFateDice, rollMixedDice, rollRpgDice, rollRpgDiceDetails, rollRpgDiceSummary, rollVampireV5, type AssimilationRollResult, type DaggerheartRollResult, type DiceRollDetails, type DiceRollResult, type DiceRollSummary, type FateRollResult, type MixedRollResult, type VampireV5RollResult } from '@erpg/dicecore';\nimport { createDiceEngine } from '@erpg/dicecore/core';\nconst result: DiceRollResult = rollRpgDice('1d6', { seed: 'package-check-esm' });\nconst details: DiceRollDetails = rollRpgDiceDetails('1d6', { seed: 'package-check-details' });\nconst summary: DiceRollSummary = rollRpgDiceSummary('1d6', { seed: 'package-check-summary' });\nconst vampire: VampireV5RollResult = rollVampireV5({ pool: 2, hunger: 1 }, { seed: 'package-check-vampire' });\nconst assimilation: AssimilationRollResult = rollAssimilation({ d6: 1 }, { seed: 'package-check-assimilation' });\nconst fate: FateRollResult = rollFateDice(undefined, { seed: 'package-check-fate' });\nconst daggerheart: DaggerheartRollResult = rollDaggerheart(undefined, { seed: 'package-check-daggerheart' });\nconst mixed: MixedRollResult = rollMixedDice('1d6; fate(1)', { seed: 'package-check-mixed' });\ncreateSystemRoller(createDiceEngine()).rollFateDice(undefined, { detail: 'compact', seed: 'compact' });\nevaluateAssimilationSelection(assimilation, [assimilation.dice[0]!.id]);\nvoid result; void details; void summary; void vampire; void fate; void daggerheart; void mixed;\n",
+    "import { createSystemRoller, evaluateAssimilationSelection, rollAssimilation, rollDaggerheart, rollPathfinder2e, rollFateDice, rollMixedDice, rollRpgDice, rollRpgDiceDetails, rollRpgDiceSummary, rollVampireV5, type Pathfinder2eRollResult, type AssimilationRollResult, type DaggerheartRollResult, type DiceRollDetails, type DiceRollResult, type DiceRollSummary, type FateRollResult, type MixedRollResult, type VampireV5RollResult } from '@erpg/dicecore';\nimport { createDiceEngine } from '@erpg/dicecore/core';\nconst result: DiceRollResult = rollRpgDice('1d6', { seed: 'package-check-esm' });\nconst details: DiceRollDetails = rollRpgDiceDetails('1d6', { seed: 'package-check-details' });\nconst summary: DiceRollSummary = rollRpgDiceSummary('1d6', { seed: 'package-check-summary' });\nconst vampire: VampireV5RollResult = rollVampireV5({ pool: 2, hunger: 1 }, { seed: 'package-check-vampire' });\nconst assimilation: AssimilationRollResult = rollAssimilation({ d6: 1 }, { seed: 'package-check-assimilation' });\nconst fate: FateRollResult = rollFateDice(undefined, { seed: 'package-check-fate' });\nconst daggerheart: DaggerheartRollResult = rollDaggerheart(undefined, { seed: 'package-check-daggerheart' });\nconst pf2: Pathfinder2eRollResult = rollPathfinder2e({ modifier: 5, difficulty: 15 }, { seed: 'package-check-pf2' });\nconst mixed: MixedRollResult = rollMixedDice('1d6; fate(1); pf2(5,15)', { seed: 'package-check-mixed' });\ncreateSystemRoller(createDiceEngine()).rollFateDice(undefined, { detail: 'compact', seed: 'compact' });\nevaluateAssimilationSelection(assimilation, [assimilation.dice[0]!.id]);\nvoid result; void details; void summary; void vampire; void fate; void daggerheart; void pf2; void mixed;\n",
   );
   writeFileSync(
     join(temporaryDirectory, 'smoke.cts'),

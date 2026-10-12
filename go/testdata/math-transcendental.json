@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "provenance": {
+    "package": "@erpg/dicecore",
+    "version": "3.7.1",
+    "commit": "1940044"
+  },
+  "mathProfile": "decimal12-v1",
+  "reason": "Regression vectors for decimal12 rounding boundaries in sine, cosine, and tangent. Go uses the reference fdlibm kernels and enforces these cases unconditionally.",
+  "cases": [
+    {
+      "name": "rounding-boundary-sin-1",
+      "operation": "unaryFunction",
+      "args": [
+        "sin",
+        1.4293
+      ],
+      "input": "fixture-expression",
+      "outcome": {
+        "value": 0.990006085645
+      }
+    },
+    {
+      "name": "rounding-boundary-tan-2",
+      "operation": "unaryFunction",
+      "args": [
+        "tan",
+        3.3315
+      ],
+      "input": "fixture-expression",
+      "outcome": {
+        "value": 0.192223758706
+      }
+    },
+    {
+      "name": "rounding-boundary-cos-3",
+      "operation": "unaryFunction",
+      "args": [
+        "cos",
+        4.6702
+      ],
+      "input": "fixture-expression",
+      "outcome": {
+        "value": -0.0421764660667
+      }
+    },
+    {
+      "name": "rounding-boundary-cos-4",
+      "operation": "unaryFunction",
+      "args": [
+        "cos",
+        9.0805
+      ],
+      "input": "fixture-expression",
+      "outcome": {
+        "value": -0.941319398544
+      }
+    },
+    {
+      "name": "rounding-boundary-tan-5",
+      "operation": "unaryFunction",
+      "args": [
+        "tan",
+        4.811574352712779e+26
+      ],
+      "input": "fixture-expression",
+      "outcome": {
+        "value": -4.06815041259
+      }
+    },
+    {
+      "name": "rounding-boundary-sin-6",
+      "operation": "unaryFunction",
+      "args": [
+        "sin",
+        5.110043838539132e+140
+      ],
+      "input": "fixture-expression",
+      "outcome": {
+        "value": -0.476249941552
+      }
+    },
+    {
+      "name": "rounding-boundary-cos-7",
+      "operation": "unaryFunction",
+      "args": [
+        "cos",
+        1.7072285362519324e+99
+      ],
+      "input": "fixture-expression",
+      "outcome": {
+        "value": -0.531383314317
+      }
+    },
+    {
+      "name": "rounding-boundary-tan-8",
+      "operation": "unaryFunction",
+      "args": [
+        "tan",
+        8.576470182742924e+99
+      ],
+      "input": "fixture-expression",
+      "outcome": {
+        "value": 9.78723077261
+      }
+    }
+  ]
+}
