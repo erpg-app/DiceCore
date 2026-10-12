@@ -7,7 +7,9 @@ const { compileDicePlan, createDiceLimits } = executor;
 const mode = process.argv[2];
 if (mode !== undefined && mode !== '--check') throw new Error('Usage: node scripts/generate-go-executor-fixtures.mjs [--check]');
 const packageVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url))).version;
-if (packageVersion !== '3.7.1') throw new Error('Review executor fixtures for a new TypeScript version');
+// The oracle below retains its frozen 3.7.1 provenance; --check independently
+// proves the additive PF2 release has not changed any existing outcome.
+if (!['3.7.1', '3.8.0'].includes(packageVersion)) throw new Error('Review executor fixtures for a new TypeScript version');
 const capture = (run) => {
   try { return { value: JSON.parse(JSON.stringify(run())) }; }
   catch (error) { return { error: typeof error.toJSON === 'function' ? error.toJSON() : { name: error.name, message: error.message } }; }

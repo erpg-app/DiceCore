@@ -30,7 +30,9 @@ const provenance = {
   commit: '1940044',
 };
 const packageVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url))).version;
-if (packageVersion !== provenance.version) {
+// Keep the frozen 3.7.1 baseline provenance. The additive PF2 release must
+// reproduce every pre-existing oracle byte; --check rejects any drift.
+if (![provenance.version, '3.8.0'].includes(packageVersion)) {
   throw new Error('Review fixture provenance before generating against a different package version');
 }
 const mode = process.argv[2];
