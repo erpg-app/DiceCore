@@ -42,13 +42,20 @@ import {
   type VampireV5RollResult,
 } from './vampire-v5.js';
 import type { SystemRollDetail, SystemRollOptions } from './common.js';
+import {
+  rollPathfinder2eWithEngine,
+  type Pathfinder2eDieResult,
+  type Pathfinder2eRollInput,
+  type Pathfinder2eRollResult,
+} from './pathfinder2e.js';
 
 export type MixedRollKind =
   | 'generic'
   | 'vampire-v5'
   | 'fate'
   | 'assimilation'
-  | 'daggerheart';
+  | 'daggerheart'
+  | 'pathfinder2e';
 
 export interface MixedRollReplayEntry {
   readonly kind: MixedRollKind;
@@ -119,12 +126,18 @@ export type MixedDaggerheartRollItem<Detail extends SystemRollDetail = 'full'> =
   DaggerheartRollResult<Detail>
 >;
 
+export type MixedPathfinder2eRollItem<Detail extends SystemRollDetail = 'full'> = MixedRollItemBase<
+  'pathfinder2e',
+  Pathfinder2eRollResult<Detail>
+>;
+
 export type MixedRollItem<Detail extends SystemRollDetail = 'full'> =
   | MixedGenericRollItem
   | MixedVampireV5RollItem<Detail>
   | MixedFateRollItem<Detail>
   | MixedAssimilationRollItem<Detail>
-  | MixedDaggerheartRollItem<Detail>;
+  | MixedDaggerheartRollItem<Detail>
+  | MixedPathfinder2eRollItem<Detail>;
 
 export interface MixedGenericDieResult extends ResolvedDie {
   readonly mixedRollId: string;
@@ -138,14 +151,15 @@ type MixedSourceSystemDieResult =
   | VampireV5DieResult
   | FateDieResult
   | AssimilationDieResult
-  | DaggerheartDieResult;
+  | DaggerheartDieResult
+  | Pathfinder2eDieResult;
 
 export type MixedSystemDieResult = MixedSourceSystemDieResult & {
   readonly mixedRollId: string;
   readonly mixedRollIndex: number;
   readonly systemDieId: string;
   readonly physicalValue: number;
-  readonly included: true;
+  readonly included: boolean;
 };
 
 export type MixedRollDieResult = MixedGenericDieResult | MixedSystemDieResult;
@@ -202,12 +216,21 @@ interface ParsedDaggerheartRoll {
   readonly rollCount: 1;
 }
 
+interface ParsedPathfinder2eRoll {
+  readonly kind: 'pathfinder2e';
+  readonly notation: string;
+  readonly input: Pathfinder2eRollInput;
+  readonly initialDice: 1 | 2;
+  readonly rollCount: 1;
+}
+
 type ParsedMixedRoll =
   | ParsedGenericRoll
   | ParsedVampireV5Roll
   | ParsedFateRoll
   | ParsedAssimilationRoll
-  | ParsedDaggerheartRoll;
+  | ParsedDaggerheartRoll
+  | ParsedPathfinder2eRoll;
 
 type NamedArguments = Readonly<Record<string, number>>;
 
@@ -222,6 +245,9 @@ const SYSTEM_ALIASES: Readonly<Record<string, Exclude<MixedRollKind, 'generic'>>
     dh: 'daggerheart',
     fate: 'fate',
     fatedice: 'fate',
+    pf2: 'pathfinder2e',
+    pf2e: 'pathfinder2e',
+    pathfinder2e: 'pathfinder2e',
     v5: 'vampire-v5',
     vampire: 'vampire-v5',
     vampirev5: 'vampire-v5',
@@ -633,6 +659,66 @@ function parseAssimilation(
   });
 }
 
+function parsePathfinder2e(
+  body: string,
+  originalInput: string,
+  segment: number,
+): ParsedPathfinder2eRoll {
+  const parts = body.trim() === '' ? [] : body.split(',').map((part) => part.trim());
+  const values: Record<string, number | null> = {};
+  const modifierAliases = ['modifier', 'mod', 'bonus'];
+  const difficultyAliases = ['difficulty', 'dificuldade', 'dc', 'cd'];
+  const fortuneAliases = ['fortune', 'fortuna'];
+  const aliases = [modifierAliases, difficultyAliases, fortuneAliases];
+  if (parts.some((part) => part === '')) {
+    throw mixedNotationError(originalInput, `Mixed roll ${segment} contains an empty argument`, segment);
+  }
+  if (parts.some((part) => part.includes('='))) {
+    for (const part of parts) {
+      const separator = part.indexOf('=');
+      if (separator < 0) {
+        throw mixedNotationError(originalInput, `Mixed roll ${segment} cannot mix positional and named arguments`, segment);
+      }
+      const name = normalizeSystemName(part.slice(0, separator).trim());
+      const field = aliases.find((names) => names.includes(name))?.[0];
+      if (field === undefined || Object.hasOwn(values, field)) {
+        throw mixedNotationError(originalInput, `Mixed roll ${segment} contains an unknown or duplicate argument '${name}'`, segment);
+      }
+      const literal = part.slice(separator + 1).trim();
+      values[field] = field === 'difficulty' && literal === 'null'
+        ? null : parseIntegerLiteral(literal, originalInput, segment);
+    }
+  } else {
+    if (parts.length > 3) {
+      throw mixedNotationError(originalInput, `Mixed roll ${segment} pf2() expects modifier, optional difficulty and fortune`, segment);
+    }
+    for (const [index, part] of parts.entries()) {
+      const field = aliases[index]?.[0] as string;
+      values[field] = field === 'difficulty' && part === 'null'
+        ? null : parseIntegerLiteral(part, originalInput, segment);
+    }
+  }
+  const modifier = values['modifier'] ?? 0;
+  const difficulty = values['difficulty'] ?? undefined;
+  const fortuneValue = values['fortune'] ?? 0;
+  if (fortuneValue !== 0 && fortuneValue !== 1 && fortuneValue !== -1) {
+    throw mixedNotationError(originalInput, `Mixed roll ${segment} fortune must be -1, 0, or 1`, segment);
+  }
+  const fortune = fortuneValue === 1 ? 'fortune' : fortuneValue === -1 ? 'misfortune' : 'normal';
+  const input: Pathfinder2eRollInput = {
+    modifier, fortune, ...(difficulty === undefined ? {} : { difficulty }),
+  };
+  return Object.freeze({
+    kind: 'pathfinder2e',
+    notation: `pathfinder2e(modifier=${modifier}${
+      difficulty === undefined ? '' : `,difficulty=${difficulty}`
+    }${fortuneValue === 0 ? '' : `,fortune=${fortuneValue}`})`,
+    input,
+    initialDice: fortune === 'normal' ? 1 : 2,
+    rollCount: 1,
+  });
+}
+
 function parseMixedRoll(
   segmentInput: string,
   originalInput: string,
@@ -645,6 +731,9 @@ function parseMixedRoll(
     const name = normalizeSystemName(call[1] as string);
     const system = SYSTEM_ALIASES[name];
     if (system !== undefined) {
+      if (system === 'pathfinder2e') {
+        return parsePathfinder2e(call[2] as string, originalInput, segment);
+      }
       const args = parseArguments(call[2] as string, originalInput, segment);
       switch (system) {
         case 'vampire-v5':
@@ -924,6 +1013,14 @@ function createMixedItem(
         notation: parsed.notation,
         result: rollDaggerheartWithEngine(engine, parsed.input, options),
       });
+    case 'pathfinder2e':
+      return Object.freeze({
+        id,
+        index,
+        kind: parsed.kind,
+        notation: parsed.notation,
+        result: rollPathfinder2eWithEngine(engine, parsed.input, options),
+      });
   }
 }
 
@@ -962,7 +1059,8 @@ function flattenSystemDice(
     | MixedVampireV5RollItem<SystemRollDetail>
     | MixedFateRollItem<SystemRollDetail>
     | MixedAssimilationRollItem<SystemRollDetail>
-    | MixedDaggerheartRollItem<SystemRollDetail>,
+    | MixedDaggerheartRollItem<SystemRollDetail>
+    | MixedPathfinder2eRollItem<SystemRollDetail>,
 ): readonly MixedSystemDieResult[] {
   return item.result.dice.map((die) => Object.freeze({
     ...die,
@@ -971,7 +1069,7 @@ function flattenSystemDice(
     mixedRollId: item.id,
     mixedRollIndex: item.index,
     physicalValue: die.rawValue,
-    included: true as const,
+    included: 'selected' in die ? die.selected : true,
   }));
 }
 
@@ -1022,6 +1120,10 @@ function formatItem(item: MixedRollItem<SystemRollDetail>): string {
       return `${item.notation}: Hope ${item.result.hopeDie.rawValue}, Fear ${
         item.result.fearDie.rawValue
       } = ${item.result.total} (${item.result.outcome})`;
+    case 'pathfinder2e':
+      return `${item.notation}: [${item.result.dice.map((die) => die.rawValue).join(',')}] = ${
+        item.result.total
+      } (${item.result.degree})`;
   }
 }
 

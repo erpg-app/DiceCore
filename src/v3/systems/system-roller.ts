@@ -1,5 +1,10 @@
 import type { DiceEngine } from '../types.js';
 import {
+  rollPathfinder2eWithEngine,
+  type Pathfinder2eRollInput,
+  type Pathfinder2eRollResult,
+} from './pathfinder2e.js';
+import {
   rollAssimilationWithEngine,
   type AssimilationRollInput,
   type AssimilationRollResult,
@@ -33,6 +38,14 @@ import type {
 
 /** System adapters bound to one configured dice engine and its cache/policy. */
 export interface SystemRoller {
+  rollPathfinder2e(
+    input: Pathfinder2eRollInput | undefined,
+    options: CompactSystemRollOptions,
+  ): Pathfinder2eRollResult<'compact'>;
+  rollPathfinder2e(
+    input?: Pathfinder2eRollInput,
+    options?: FullSystemRollOptions,
+  ): Pathfinder2eRollResult;
   rollAssimilation(
     input: AssimilationRollInput,
     options: CompactSystemRollOptions,
@@ -78,6 +91,9 @@ export function createSystemRoller(engine: DiceEngine): SystemRoller {
   }
 
   return {
+    rollPathfinder2e: (input: Pathfinder2eRollInput = {}, options: SystemRollOptions = {}) => (
+      rollPathfinder2eWithEngine(engine, input, options)
+    ),
     rollAssimilation: (input: AssimilationRollInput, options: SystemRollOptions = {}) => (
       rollAssimilationWithEngine(engine, input, options)
     ),

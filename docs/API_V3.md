@@ -13,6 +13,7 @@ rollRpgDiceDetails(inputOrPlan, options?): DiceRollDetails
 rollRpgDiceSummary(inputOrPlan, options?): DiceRollSummary
 rollMixedDice(notation, options?): MixedRollResult
 rollFateDice(input?, options?): FateRollResult
+rollPathfinder2e(input?, options?): Pathfinder2eRollResult
 rollVampireV5(input, options?): VampireV5RollResult
 rollAssimilation(input, options?): AssimilationRollResult
 evaluateAssimilationSelection(roll, selectedIds): AssimilationSelectionResult
@@ -31,11 +32,30 @@ import { createSystemRoller } from '@erpg/dicecore/systems'
 import { rollFateDice } from '@erpg/dicecore/systems/fate'
 ```
 
-Os demais sistemas estão em `systems/assimilation`, `systems/daggerheart`,
+Os demais sistemas estão em `systems/assimilation`, `systems/daggerheart`, `systems/pathfinder2e`,
 `systems/mixed` e `systems/vampire-v5`. O entrypoint raiz continua exportando
 toda a API por compatibilidade.
 
 `DiceRollError.fromJSON(data)` restaura erros validados recebidos de workers, outros realms ou transporte JSON.
+
+## PF2 Remaster
+
+`rollPathfinder2e({ modifier?, difficulty?, fortune?, labels? }, options?)`
+aceita CD inteira não negativa ou `null`, fortuna `normal|fortune|misfortune`
+e rótulos opcionais por grau. O DTO expõe `natural`, `total`, `margin`,
+`degree`, `degreeLabel`, `succeeds`, `dice` e `baseRoll`. Graus técnicos são
+`critical-success|success|failure|critical-failure|pending`.
+
+CD omitida deixa margem e sucesso `null`. Margens +10/0/−10 determinam os
+limiares; 20 natural melhora um grau e 1 natural piora um grau. Fortuna e
+infortúnio preservam os dois d20 e marcam somente o escolhido com `selected`.
+Os limites e o replay pertencem ao motor fornecido por `createSystemRoller`.
+
+`pf2(mod[,cd][,fortuna])` também funciona em `rollMixedDice`, com fortuna
+numérica `1`, `-1` ou `0`. `pf2(mod,null,1)` mantém a CD secreta. Aliases:
+`pf2e`, `pathfinder2e`; nomes dos parâmetros: `modifier|mod|bonus`,
+`difficulty|dificuldade|dc|cd`, `fortune|fortuna`. Dados descartados continuam
+na lista física e têm `included: false` na projeção mista.
 
 ## Notação mista
 

@@ -8,7 +8,7 @@ import type {
   RollOptions,
 } from '../types.js';
 
-export type DiceSystemId = 'assimilation' | 'daggerheart' | 'fate' | 'vampire-v5';
+export type DiceSystemId = 'assimilation' | 'daggerheart' | 'fate' | 'pathfinder2e' | 'vampire-v5';
 
 export type SystemRollDetail = 'compact' | 'full';
 export type FullSystemRollOptions = RollOptions & { readonly detail?: 'full' };
