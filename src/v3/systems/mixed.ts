@@ -1163,7 +1163,10 @@ export function rollMixedDiceWithEngine(
     });
   }
 
-  const limits = resolveDiceLimits(engine.limits, options.limits);
+  const engineLimits = engine.limits;
+  const limitOverrides = options.limits;
+  const usesEngineCaps = engine === defaultDiceEngine && limitOverrides === undefined;
+  const limits = usesEngineCaps ? engineLimits : resolveDiceLimits(engineLimits, limitOverrides);
   if (input.length > limits.maxInputLength) {
     throw new DiceRollError('Mixed dice notation exceeds the input-length limit', {
       code: 'INPUT_TOO_LONG',
@@ -1191,7 +1194,10 @@ export function rollMixedDiceWithEngine(
   let stats = EMPTY_STATS;
   let outputLength = 0;
   for (const [index, parsedRoll] of parsed.entries()) {
-    const itemLimits = createRemainingLimits(limits, stats, outputLength);
+    // The first segment has not consumed any of the shared budget yet.
+    const itemLimits = index === 0 && usesEngineCaps
+      ? limits
+      : createRemainingLimits(limits, stats, outputLength);
     const itemOptions = createItemOptions(
       options,
       itemLimits,

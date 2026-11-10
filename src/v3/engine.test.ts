@@ -74,6 +74,18 @@ describe('V3 dice engine', () => {
     expect(sorted.groups[0]?.childIds).toEqual(['roll-1-die-1', 'roll-1-die-2']);
   });
 
+  test.each(['4d1kh1', '{1d1,1d1,1d1,1d1}kh1'])(
+    'preserves tie order in results and exclusion events for %s',
+    (notation) => {
+      const result = rollRpgDice(notation, { seed: 'ties' });
+      expect(result.dice.map((die) => die.included)).toEqual([false, false, false, true]);
+      const excluded = result.events
+        .filter((event) => event.type === 'exclude' && event.subject === 'die')
+        .map((event) => event.dieId);
+      expect(excluded).toEqual(['roll-1-die-1', 'roll-1-die-2', 'roll-1-die-3']);
+    },
+  );
+
   test('turns positive adjusted pools into physical dice and zero or less into disadvantage', () => {
     const reduced = rollRpgDice('2d8-pool(1)', { seed: 'pool-reduced' });
     expect(reduced).toMatchObject({

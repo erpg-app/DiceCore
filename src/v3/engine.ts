@@ -211,7 +211,7 @@ function readRuntimeEngineOptions(options: unknown): RuntimeEngineOptions {
 }
 
 function resolveCallLimits(engineLimits: DiceLimits, overrides: unknown): DiceLimits {
-  return overrides === undefined
+  return overrides === undefined || overrides === engineLimits
     ? engineLimits
     : resolveDiceLimits(engineLimits, overrides);
 }

@@ -429,21 +429,19 @@ function applyUnique(
   }
 }
 
-function indexesToExclude(
-  values: readonly { readonly value: number }[],
+function rankExclusions<T extends { readonly value: number }>(
+  ranked: T[],
   kind: 'keep' | 'drop',
   selection: 'lowest' | 'highest',
   quantity: number,
-): readonly number[] {
-  const ranked = values
-    .map((value, index) => ({ index, value: value.value }))
-    .sort((left, right) => left.value - right.value || left.index - right.index);
+): readonly T[] {
+  // Stable sort preserves the original order of ties, including their events.
+  ranked.sort((left, right) => left.value - right.value);
   const boundary = selection === 'lowest' ? quantity : Math.max(0, ranked.length - quantity);
   // Selection is a contiguous range in ranked order. Its complement is the
   // other range, so keep does not need a Set or another membership traversal.
   const excludePrefix = (selection === 'lowest') === (kind === 'drop');
-  return (excludePrefix ? ranked.slice(0, boundary) : ranked.slice(boundary))
-    .map((entry) => entry.index);
+  return excludePrefix ? ranked.slice(0, boundary) : ranked.slice(boundary);
 }
 
 function applySelection(
@@ -452,16 +450,15 @@ function applySelection(
   state: RollState,
 ): void {
   const active = dice.filter((die) => die.active);
-  const excluded = indexesToExclude(
+  const excluded = rankExclusions(
     active,
     modifier.kind,
     modifier.selection,
     modifier.quantity,
   );
 
-  for (const index of excluded) {
-    const die = active[index];
-    if (die === undefined || !die.included) {
+  for (const die of excluded) {
+    if (!die.included) {
       continue;
     }
     die.included = false;
@@ -712,15 +709,14 @@ function applyGroupModifiers(
     switch (modifier.kind) {
       case 'keep':
       case 'drop': {
-        const excluded = indexesToExclude(
-          items,
+        const excluded = rankExclusions(
+          items.slice(),
           modifier.kind,
           modifier.selection,
           modifier.quantity,
         );
-        for (const index of excluded) {
-          const item = items[index];
-          if (item !== undefined && item.included) {
+        for (const item of excluded) {
+          if (item.included) {
             excludeEvaluationDice(item, state, modifier.kind);
           }
         }
